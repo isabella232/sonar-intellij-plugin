@@ -8,24 +8,18 @@ import com.intellij.notification.NotificationType;
 import com.intellij.notification.Notifications;
 import com.intellij.openapi.progress.ProgressManager;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.project.ProjectManager;
 import com.intellij.psi.PsiFile;
+import git4idea.repo.GitRepositoryManager;
 import org.intellij.sonar.console.SonarConsole;
 import org.intellij.sonar.index.IssuesByFileIndexer;
 import org.intellij.sonar.index.SonarIssue;
-import org.intellij.sonar.persistence.IssuesByFileIndexProjectService;
-import org.intellij.sonar.persistence.Resource;
-import org.intellij.sonar.persistence.Settings;
-import org.intellij.sonar.persistence.SonarServerConfig;
-import org.intellij.sonar.persistence.SonarServers;
+import org.intellij.sonar.persistence.*;
 import org.intellij.sonar.sonarserver.SonarServer;
 import org.intellij.sonar.util.DurationUtil;
 import org.sonarqube.ws.Issues.Issue;
 
-import java.util.AbstractCollection;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 public class DownloadIssuesTask implements Runnable {
@@ -59,18 +53,27 @@ public class DownloadIssuesTask implements Runnable {
   public void run() {
     final SonarServer sonarServer = SonarServer.create(sonarServerConfig);
     final long startTime = System.currentTimeMillis();
+    final String branchName = getBranchName();
     for (String resourceKey : resourceKeys) {
-      final String downloadingIssuesMessage = String.format("Downloading issues for SonarQube resource %s",resourceKey);
+      final String downloadingIssuesMessage = String.format("Downloading issues for SonarQube resource %s[%s]",resourceKey, branchName);
       sonarConsole.info(downloadingIssuesMessage);
-        tryDownloadingIssues(sonarServer, resourceKey);
+        tryDownloadingIssues(sonarServer, resourceKey, branchName);
     }
     onSuccess(startTime);
   }
 
-    private void tryDownloadingIssues(SonarServer sonarServer, String resourceKey) {
+  private String getBranchName(){
+
+      Project p = Arrays.stream(ProjectManager.getInstance().getOpenProjects()).findFirst().get();
+      var repos = GitRepositoryManager.getInstance(p).getRepositories();
+      var nb = repos.get(0).getCurrentBranchName();
+      return nb;
+  }
+
+    private void tryDownloadingIssues(SonarServer sonarServer, String resourceKey, String branchName) {
         ImmutableList<Issue> issues;
         try {
-            issues = sonarServer.getAllIssuesFor(resourceKey, sonarServerConfig.getOrganization());
+            issues = sonarServer.getAllIssuesFor(resourceKey, sonarServerConfig.getOrganization(), branchName);
             downloadedIssuesByResourceKey.put(resourceKey,issues);
         } catch (Exception e) {
             sonarConsole.error(e.getMessage());
