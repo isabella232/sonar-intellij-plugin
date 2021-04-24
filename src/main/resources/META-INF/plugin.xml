@@ -335,6 +335,7 @@
     <idea-version since-build="202.5103.13" /> <!-- IntelliJ IDEA v.2020.2-->
 
     <depends>com.intellij.modules.lang</depends>
+    <depends>Git4Idea</depends>
 
     <projectListeners>
         <listener class="org.intellij.sonar.DocumentChangeListener"
