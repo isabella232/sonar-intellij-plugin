@@ -6,6 +6,10 @@ import com.google.common.collect.Maps;
 import com.intellij.notification.Notification;
 import com.intellij.notification.NotificationType;
 import com.intellij.notification.Notifications;
+import com.intellij.openapi.actionSystem.AnActionEvent;
+import com.intellij.openapi.editor.Editor;
+import com.intellij.openapi.module.Module;
+import com.intellij.openapi.module.ModuleManager;
 import com.intellij.openapi.progress.ProgressManager;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.project.ProjectManager;
@@ -53,8 +57,9 @@ public class DownloadIssuesTask implements Runnable {
   public void run() {
     final SonarServer sonarServer = SonarServer.create(sonarServerConfig);
     final long startTime = System.currentTimeMillis();
-    final String branchName = getBranchName();
+    inspectBranchNames();
     for (String resourceKey : resourceKeys) {
+      final String branchName = getBranchName(resourceKey);
       final String downloadingIssuesMessage = String.format("Downloading issues for SonarQube resource %s[%s]",resourceKey, branchName);
       sonarConsole.info(downloadingIssuesMessage);
         tryDownloadingIssues(sonarServer, resourceKey, branchName);
@@ -62,12 +67,55 @@ public class DownloadIssuesTask implements Runnable {
     onSuccess(startTime);
   }
 
-  private String getBranchName(){
+  private void inspectBranchNames(){
+      Module m1 = enrichedSettings.module;
+      if (m1 != null) {
+          sonarConsole.info("M1: " + m1.getName());
+          sonarConsole.info("M1: " + m1.getModuleFilePath());
+      }
+      Project p = enrichedSettings.project;
+      sonarConsole.info("P: " + p.getName());
+      sonarConsole.info("P: " + p.getBasePath());
 
-      Project p = Arrays.stream(ProjectManager.getInstance().getOpenProjects()).findFirst().get();
+      for(Module m : ModuleManager.getInstance(p).getModules()){
+          sonarConsole.info("M: " + m.getName());
+          sonarConsole.info("M: " + m.getModuleFilePath());
+          var repo = GitRepositoryManager.getInstance(p).getRepositoryForFile(m.getModuleFile());
+          if (repo != null) {
+              sonarConsole.info("MR: " + repo.getCurrentBranchName());
+          }
+      }
       var repos = GitRepositoryManager.getInstance(p).getRepositories();
-      var nb = repos.get(0).getCurrentBranchName();
-      return nb;
+      for(var repo : repos) {
+          sonarConsole.info("BA: " + repo.getCurrentBranchName());
+          sonarConsole.info("BB: " + repo.getVcs().getName());
+          sonarConsole.info("BC: " + repo.getVcs().getDisplayName());
+          sonarConsole.info("BC: " + repo.getVcs().getShortName());
+          sonarConsole.info("BD: " + repo.getProject().getName());
+          sonarConsole.info("BE: " + repo.getProject().getProjectFile().getName());
+          sonarConsole.info("BF: " + repo.getProject().getProjectFile().getPath());
+          sonarConsole.info("BG: " + repo.getProject().getProjectFile().getUrl());
+          sonarConsole.info("BH: " + repo.getProject().getProjectFile().getPresentableName());
+          sonarConsole.info("BI: " + repo.getProject().getProjectFile().getPresentableUrl());
+      }
+  }
+
+  private String getBranchName(String projectKey){
+      String projectName = projectKey.substring(projectKey.indexOf(":")+1);
+      sonarConsole.info("Looking for current branch in [" + projectName + "]");
+
+      Project p = enrichedSettings.project;
+
+      var associatedModule = Arrays.stream(ModuleManager.getInstance(p).getModules()).filter(module -> projectName.equals(module.getName())).findFirst().get();
+      sonarConsole.info("Found module: [" + associatedModule.getName() + "]");
+      var repoForModule = GitRepositoryManager.getInstance(p).getRepositoryForFile(associatedModule.getModuleFile());
+      if (repoForModule != null) {
+        var foundBranch = repoForModule.getCurrentBranchName();
+        sonarConsole.info("Found branch: [" + foundBranch + "]");
+        return foundBranch;
+      }
+
+      return "";
   }
 
     private void tryDownloadingIssues(SonarServer sonarServer, String resourceKey, String branchName) {
