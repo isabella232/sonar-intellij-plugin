@@ -4,7 +4,7 @@
     <id>org.mayevskiy.intellij.sonar</id>
     <name>SonarQube Analyzer</name>
 
-    <version>3.0.0</version>
+    <version>3.1.0</version>
 
     <vendor email="sonarqube-intellij-plugin@googlegroups.com"
             url="https://github.com/sonar-intellij-plugin/sonar-intellij-plugin">
@@ -16,6 +16,12 @@
 
     <change-notes>
         <![CDATA[
+<p>
+3.1.0
+<ul>
+<li>Add Git branch support</li>
+</ul>
+</p>
 <p>
 3.0.0
 <ul>
